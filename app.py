@@ -78,7 +78,7 @@ AI_THEORY_NOTES = {
 }
 
 SAMPLE_DATA = []  # لا توجد بيانات وهمية افتراضيًا — أدخل مشاهدك الحقيقية من المسلسل بنفسك
-                  # في صفحة "قاعدة البيانات والتحليل"، أو استخدم المصنِّف التلقائي
+                  # في صفحة "قاعدة البيانات والتحليل"، أو استخدم معالج التصنيف الموجّه
                   # بعد لصق النص الأصلي وترجمته الفعليتين من مصدر موثوق (نسخة الدبلجة/السترجة الرسمية).
 
 # جدول مرجعي أكاديمي: يفصل الاستراتيجيات بحسب مصنِّفها النظري، ومدى ملاءمتها
@@ -643,64 +643,93 @@ elif page == "📚 قاعدة البيانات والتحليل":
 
     with st.container():
         st.markdown(
-            '<div class="main-card rtl-text"><h3>🧠 المصنِّف التلقائي — اقتراح أولي فقط، وليس حكمًا نهائيًا</h3>'
-            '<p>الصق حوارًا <b>حقيقيًا</b> (من نسخة الدبلجة/السترجة الفعلية) وترجمته الصينية الفعلية، '
-            'واضغط "حلّل هذا المشهد". الأداة تعتمد على مؤشرات لغوية بسيطة (طول النص، '
-            'وجود مفردات دينية/عامية) لتقترح تصنيفًا أوليًا <b>يجب عليك مراجعته وتصحيحه بنفسك</b> '
-            'قبل الحفظ — فهي لا "تفهم" السياق الدرامي الكامل للمشهد كما يفعل الباحث البشري.</p></div>',
+            '<div class="main-card rtl-text"><h3>🧭 معالج التصنيف الموجّه — أسئلة بسيطة تعرف إجابتها أنت بيقين</h3>'
+            '<p>هذه الأداة <b>لا تخمّن</b> من النص. بدل ذلك، تسألك أسئلة عن المشهد '
+            '<b>الذي شاهدته وسمعته فعليًا</b>، ثم تطبّق القاعدة النظرية الصحيحة تلقائيًا. '
+            'النتيجة دقيقة لأنها مبنية على ملاحظتك المباشرة، لا على تخمين آلي للكلمات.</p></div>',
             unsafe_allow_html=True,
         )
-        ac1, ac2 = st.columns(2)
-        with ac1:
-            new_ar = st.text_area("الحوار بالعربية", key="auto_ar", height=90)
-        with ac2:
-            new_zh = st.text_area("الترجمة الصينية", key="auto_zh", height=90)
 
-        if st.button("🔍 حلّل هذا المشهد تلقائيًا", use_container_width=True):
-            if new_ar.strip() and new_zh.strip():
-                st.session_state.auto_result = auto_classify_scene(new_ar, new_zh)
-            else:
-                st.warning("الرجاء إدخال النص العربي وترجمته الصينية معًا.")
+        w1, w2 = st.columns(2)
+        with w1:
+            wiz_ar = st.text_area("الحوار الأصلي بالعربية (انسخه من مصدرك الحقيقي)", key="wiz_ar", height=90)
+        with w2:
+            wiz_zh = st.text_area("الترجمة الصينية الفعلية (من نفس المصدر)", key="wiz_zh", height=90)
 
-        if st.session_state.get("auto_result"):
-            res = st.session_state.auto_result
-            st.markdown(
-                f'<div class="main-card rtl-text">'
-                f'<b>الاستراتيجية المقترحة:</b> {res["استراتيجية الترجمة"]}<br>'
-                f'<b>نوع التحدي المقترح:</b> {res["نوع التحدي"]}<br>'
-                f'<b>نسبة الطول (صيني/عربي):</b> {res["نسبة الطول (صيني/عربي)"]}<br>'
-                f'<b>التفسير:</b> {res["التفسير"]}'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-            colx, coly = st.columns(2)
-            with colx:
-                final_strategy = st.selectbox(
-                    "تأكيد/تعديل الاستراتيجية", TRANSLATION_STRATEGIES,
-                    index=TRANSLATION_STRATEGIES.index(res["استراتيجية الترجمة"]),
-                    key="confirm_strategy",
-                )
-            with coly:
-                final_challenge = st.selectbox(
-                    "تأكيد/تعديل نوع التحدي", CHALLENGE_TYPES,
-                    index=CHALLENGE_TYPES.index(res["نوع التحدي"]),
-                    key="confirm_challenge",
-                )
-            if st.button("➕ إضافة هذا المشهد إلى الجدول", type="primary", use_container_width=True):
+        st.markdown('<div class="rtl-text"><b>الآن أجب عن هذه الأسئلة بناءً على ما شاهدته/قرأته فعليًا:</b></div>', unsafe_allow_html=True)
+
+        q1 = st.radio(
+            "١) هل حُذف أي جزء من معنى الحوار الأصلي في الترجمة؟",
+            ["لم يُحذف شيء", "حُذف جزء بسيط مع بقاء المعنى", "حُذف معظم المعنى أو كله"],
+            key="wiz_q1",
+        )
+        q2 = st.radio(
+            "٢) هل أُضيف للترجمة أي شرح أو تفصيل غير موجود في الأصل (لتوضيح مرجع ثقافي/ديني)؟",
+            ["لا، لم يُضف شيء", "نعم، أُضيف توضيح أو شرح"],
+            key="wiz_q2",
+        )
+        q3 = st.radio(
+            "٣) هل استُبدل عنصر ثقافي/ديني عربي بعنصر صيني مختلف كليًا يؤدي وظيفة مشابهة؟ (مثال: 'الشيخ' → 法师)",
+            ["لا", "نعم"],
+            key="wiz_q3",
+        )
+        q4 = st.radio(
+            "٤) هل حافظت الترجمة على نفس تركيب الجملة وترتيبها تقريبًا كما في العربية؟",
+            ["نعم، حرفيًا تقريبًا", "لا، أعيدت صياغتها بأسلوب مختلف كليًا"],
+            key="wiz_q4",
+        )
+        q5 = st.selectbox(
+            "٥) في رأيك كباحث، ما طبيعة الصعوبة الرئيسية في هذا المشهد؟",
+            CHALLENGE_TYPES,
+            key="wiz_q5",
+        )
+
+        # تطبيق القاعدة النظرية بحسب إجابات الباحث نفسه (لا تخمين آليًا)
+        if q1 == "حُذف معظم المعنى أو كله":
+            wiz_strategy = "الحذف (Omission / Deletion)"
+            wiz_reason = "أجبت أن معظم المعنى أو كله حُذف → هذا تعريف استراتيجية الحذف (Deletion) عند جوتليب مباشرة."
+        elif q2 == "نعم، أُضيف توضيح أو شرح":
+            wiz_strategy = "الإضافة (Addition/Explicitation)"
+            wiz_reason = "أجبت أن توضيحًا أو شرحًا أُضيف للأصل → هذا تعريف استراتيجية التوسيع/الإضافة (Expansion) عند جوتليب."
+        elif q3 == "نعم":
+            wiz_strategy = "التكييف الثقافي (Cultural Adaptation)"
+            wiz_reason = "أجبت أن عنصرًا ثقافيًا استُبدل بعنصر مختلف كليًا يؤدي وظيفة مشابهة → هذا تعريف التكييف الثقافي/الإبدال (Resignation) عند جوتليب."
+        elif q1 == "حُذف جزء بسيط مع بقاء المعنى":
+            wiz_strategy = "التعميم (Generalization)"
+            wiz_reason = "أجبت أن جزءًا بسيطًا حُذف مع بقاء المعنى العام → أقرب لاستراتيجية الفك/التعميم (Decimation) عند جوتليب."
+        elif q4 == "نعم، حرفيًا تقريبًا":
+            wiz_strategy = "الترجمة الحرفية (Literal Translation)"
+            wiz_reason = "أجبت أن التركيب حافظ على شكله الأصلي تقريبًا → هذا تعريف النقل المباشر (Transfer) عند جوتليب."
+        else:
+            wiz_strategy = "إعادة الصياغة (Paraphrase)"
+            wiz_reason = "أجبت أن الصياغة أُعيدت بأسلوب مختلف كليًا دون حذف أو إضافة تُذكر → هذا تعريف إعادة الصياغة (Paraphrase) عند جوتليب."
+
+        st.markdown(
+            f'<div class="main-card rtl-text">'
+            f'<b>الاستراتيجية المحدَّدة بناءً على إجاباتك:</b> {wiz_strategy}<br>'
+            f'<b>نوع التحدي الذي اخترته:</b> {q5}<br>'
+            f'<b>سبب هذا التصنيف:</b> {wiz_reason}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        if st.button("➕ إضافة هذا المشهد إلى الجدول", type="primary", use_container_width=True):
+            if wiz_ar.strip() and wiz_zh.strip():
                 df_now = st.session_state.corpus_df
                 next_num = int(df_now["رقم المشهد"].max()) + 1 if len(df_now) else 1
                 new_row = pd.DataFrame([{
                     "رقم المشهد": next_num,
-                    "الحوار بالعربية": st.session_state.auto_ar,
-                    "الترجمة الصينية": st.session_state.auto_zh,
-                    "استراتيجية الترجمة": final_strategy,
-                    "نوع التحدي": final_challenge,
-                    "ملاحظات": res["التفسير"],
+                    "الحوار بالعربية": wiz_ar,
+                    "الترجمة الصينية": wiz_zh,
+                    "استراتيجية الترجمة": wiz_strategy,
+                    "نوع التحدي": q5,
+                    "ملاحظات": wiz_reason,
                 }])
                 st.session_state.corpus_df = pd.concat([df_now, new_row], ignore_index=True)
-                st.session_state.auto_result = None
-                st.success("✅ تمت الإضافة! انظر الجدول أدناه.")
+                st.success("✅ تمت الإضافة بدقة إلى الجدول.")
                 st.rerun()
+            else:
+                st.warning("الرجاء إدخال الحوار العربي وترجمته الصينية الفعليين أولًا.")
 
     st.divider()
 
