@@ -9,11 +9,20 @@
 
 import io
 import json
+import math
 from datetime import datetime
 
 import pandas as pd
-import plotly.express as px
 import streamlit as st
+
+# استيراد Plotly بأمان: إن لم تكن الحزمة مثبَّتة في بيئة النشر (خطأ شائع عند نسيان
+# رفع requirements.txt أو وضعه في مسار غير جذر المستودع)، يتحوّل التطبيق تلقائيًا
+# إلى رسوم بيانية بديلة مبنية داخليًا في Streamlit بدل أن يتعطل بالكامل.
+try:
+    import plotly.express as px
+    PLOTLY_AVAILABLE = True
+except ModuleNotFoundError:
+    PLOTLY_AVAILABLE = False
 
 # ----------------------------------------------------------------------------
 # إعدادات الصفحة العامة
@@ -326,6 +335,16 @@ with st.sidebar:
 
 inject_css(dark=(st.session_state.theme == "داكن (Dark)"))
 
+if not PLOTLY_AVAILABLE:
+    st.warning(
+        "⚠️ حزمة `plotly` غير مثبَّتة في هذه البيئة، لذلك تعمل الرسوم البيانية "
+        "حاليًا بوضع بديل (Streamlit Charts). للتفعيل الكامل: تأكد أن ملف "
+        "`requirements.txt` موجود في **جذر المستودع** بجانب `app.py` مباشرة "
+        "(وليس داخل مجلد فرعي)، ثم من لوحة التطبيق على Streamlit Cloud اضغط "
+        "على 'Manage app' ← ⋮ ← 'Reboot app' لإعادة تثبيت الحزم.",
+        icon="⚠️",
+    )
+
 # ----------------------------------------------------------------------------
 # الصفحة 1: الصفحة الرئيسية
 # ----------------------------------------------------------------------------
@@ -464,44 +483,88 @@ elif page == "📊 لوحة الإحصائيات":
     else:
         col1, col2 = st.columns(2)
 
+        strat_counts = df["استراتيجية الترجمة"].value_counts().reset_index()
+        strat_counts.columns = ["الاستراتيجية", "التكرار"]
+        chall_counts = df["نوع التحدي"].value_counts().reset_index()
+        chall_counts.columns = ["نوع التحدي", "التكرار"]
+
         with col1:
             st.markdown('<div class="rtl-text"><h4>توزيع استراتيجيات الترجمة</h4></div>', unsafe_allow_html=True)
-            strat_counts = df["استراتيجية الترجمة"].value_counts().reset_index()
-            strat_counts.columns = ["الاستراتيجية", "التكرار"]
-            fig1 = px.pie(
-                strat_counts, names="الاستراتيجية", values="التكرار",
-                hole=0.45, color_discrete_sequence=px.colors.sequential.Sunset,
-            )
-            fig1.update_layout(legend=dict(orientation="h"), margin=dict(t=10, b=10))
-            st.plotly_chart(fig1, use_container_width=True)
+            if PLOTLY_AVAILABLE:
+                fig1 = px.pie(
+                    strat_counts, names="الاستراتيجية", values="التكرار",
+                    hole=0.45, color_discrete_sequence=px.colors.sequential.Sunset,
+                )
+                fig1.update_layout(legend=dict(orientation="h"), margin=dict(t=10, b=10))
+                st.plotly_chart(fig1, use_container_width=True)
+            else:
+                st.bar_chart(strat_counts.set_index("الاستراتيجية"))
 
         with col2:
             st.markdown('<div class="rtl-text"><h4>توزيع أنواع التحديات</h4></div>', unsafe_allow_html=True)
-            chall_counts = df["نوع التحدي"].value_counts().reset_index()
-            chall_counts.columns = ["نوع التحدي", "التكرار"]
-            fig2 = px.bar(
-                chall_counts, x="التكرار", y="نوع التحدي", orientation="h",
-                color="التكرار", color_continuous_scale="Purples",
-            )
-            fig2.update_layout(yaxis=dict(autorange="reversed"), margin=dict(t=10, b=10))
-            st.plotly_chart(fig2, use_container_width=True)
+            if PLOTLY_AVAILABLE:
+                fig2 = px.bar(
+                    chall_counts, x="التكرار", y="نوع التحدي", orientation="h",
+                    color="التكرار", color_continuous_scale="Purples",
+                )
+                fig2.update_layout(yaxis=dict(autorange="reversed"), margin=dict(t=10, b=10))
+                st.plotly_chart(fig2, use_container_width=True)
+            else:
+                st.bar_chart(chall_counts.set_index("نوع التحدي"))
 
         st.divider()
         st.markdown('<div class="rtl-text"><h4>العلاقة بين الاستراتيجية ونوع التحدي</h4></div>', unsafe_allow_html=True)
         cross = df.groupby(["استراتيجية الترجمة", "نوع التحدي"]).size().reset_index(name="التكرار")
-        fig3 = px.sunburst(
-            cross, path=["نوع التحدي", "استراتيجية الترجمة"], values="التكرار",
-            color_discrete_sequence=px.colors.qualitative.Set2,
-        )
-        fig3.update_layout(margin=dict(t=10, b=10))
-        st.plotly_chart(fig3, use_container_width=True)
+        if PLOTLY_AVAILABLE:
+            fig3 = px.sunburst(
+                cross, path=["نوع التحدي", "استراتيجية الترجمة"], values="التكرار",
+                color_discrete_sequence=px.colors.qualitative.Set2,
+            )
+            fig3.update_layout(margin=dict(t=10, b=10))
+            st.plotly_chart(fig3, use_container_width=True)
+        else:
+            pivot = cross.pivot_table(
+                index="نوع التحدي", columns="استراتيجية الترجمة",
+                values="التكرار", fill_value=0,
+            )
+            st.dataframe(pivot, use_container_width=True)
+            st.caption("عرض جدولي بديل (Cross-tabulation) — سيتحول تلقائيًا إلى مخطط Sunburst بمجرد تثبيت plotly.")
 
         st.markdown('<div class="rtl-text"><h4>عدد المشاهد المُحلَّلة تراكميًا</h4></div>', unsafe_allow_html=True)
-        df_sorted = df.sort_values("رقم المشهد")
+        df_sorted = df.sort_values("رقم المشهد").copy()
         df_sorted["تراكمي"] = range(1, len(df_sorted) + 1)
-        fig4 = px.line(df_sorted, x="رقم المشهد", y="تراكمي", markers=True)
-        fig4.update_layout(margin=dict(t=10, b=10))
-        st.plotly_chart(fig4, use_container_width=True)
+        if PLOTLY_AVAILABLE:
+            fig4 = px.line(df_sorted, x="رقم المشهد", y="تراكمي", markers=True)
+            fig4.update_layout(margin=dict(t=10, b=10))
+            st.plotly_chart(fig4, use_container_width=True)
+        else:
+            st.line_chart(df_sorted.set_index("رقم المشهد")["تراكمي"])
+
+        # ------------------------------------------------------------------
+        # لمسة إبداعية جديدة: "مؤشر التوازن الاستراتيجي" — مقياس مبسّط يقيس
+        # مدى تنوّع استراتيجيات الترجمة المستخدمة (مؤشر Shannon للتنوع)،
+        # وهو رقم يمكنك الاستشهاد به مباشرة في فصل التحليل الكمي بالأطروحة.
+        # ------------------------------------------------------------------
+        st.divider()
+        st.markdown('<div class="rtl-text"><h4>🧮 مؤشر التنوع الاستراتيجي (Shannon Diversity Index)</h4></div>', unsafe_allow_html=True)
+        probs = (strat_counts["التكرار"] / strat_counts["التكرار"].sum()).values
+        shannon = -sum(p * math.log(p) for p in probs if p > 0)
+        max_shannon = math.log(len(TRANSLATION_STRATEGIES))
+        normalized = (shannon / max_shannon) if max_shannon > 0 else 0
+        c1, c2 = st.columns([1, 2])
+        with c1:
+            st.metric("مؤشر التنوع (0–1)", f"{normalized:.2f}")
+        with c2:
+            st.markdown(
+                '<div class="rtl-text">'
+                "قيمة قريبة من <b>1</b> تعني أن المترجم استخدم استراتيجيات متنوعة "
+                "دون هيمنة واضحة لاستراتيجية واحدة، بينما قيمة قريبة من <b>0</b> "
+                "تعني اعتمادًا شبه حصري على استراتيجية واحدة. هذا مؤشر إحصائي "
+                "بسيط يمكن ذكره في فصل النتائج كدليل كمّي على 'مرونة' أو 'تحفظ' "
+                "المترجم في التعامل مع النص."
+                "</div>",
+                unsafe_allow_html=True,
+            )
 
 # ----------------------------------------------------------------------------
 # الصفحة 4: المساعد الذكي
