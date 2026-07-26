@@ -433,40 +433,49 @@ elif page == "📚 قاعدة البيانات والتحليل":
     st.session_state.corpus_df = edited_df
 
     st.divider()
-    st.markdown('<div class="rtl-text"><h3>⬇️⬆️ الاستيراد والتصدير</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="rtl-text"><h3>⬇️⬆️ حفظ بياناتك واسترجاعها (بسيط جدًا)</h3></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="rtl-text">'
+        "استخدم <b>ملف CSV</b> فقط — يفتح مباشرة في Excel أو Google Sheets، ولا يحتاج أي "
+        "خبرة تقنية. اضغط 'تحميل نسخة احتياطية' لحفظ عملك على جهازك، وفي أي وقت لاحق "
+        "ارفع نفس الملف لاسترجاع بياناتك كما تركتها."
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2 = st.columns(2)
     with c1:
         csv_bytes = edited_df.to_csv(index=False).encode("utf-8-sig")
         st.download_button(
-            "📥 تصدير CSV",
+            "💾 تحميل نسخة احتياطية (CSV)",
             data=csv_bytes,
             file_name=f"corpus_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv",
             use_container_width=True,
         )
     with c2:
+        uploaded = st.file_uploader("📤 استرجاع نسخة سابقة (اختر ملف CSV)", type=["csv"])
+        if uploaded is not None:
+            try:
+                new_df = pd.read_csv(uploaded)
+                st.session_state.corpus_df = new_df
+                st.success("✅ تم الاسترجاع بنجاح.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"⚠️ لم أستطع قراءة الملف: {e}")
+
+    with st.expander("🔧 خيار إضافي (اختياري وليس ضروريًا): تصدير بصيغة JSON"):
+        st.caption(
+            "هذه الصيغة تفيد فقط إن كنت تستخدم برامج برمجية أخرى لاحقًا. "
+            "لا تحتاجها لكتابة الأطروحة — تجاهلها إن لم تكن متأكدًا."
+        )
         json_bytes = edited_df.to_json(orient="records", force_ascii=False, indent=2).encode("utf-8")
         st.download_button(
-            "📥 تصدير JSON",
+            "تصدير JSON",
             data=json_bytes,
             file_name=f"corpus_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
             mime="application/json",
-            use_container_width=True,
         )
-    with c3:
-        uploaded = st.file_uploader("📤 استيراد بيانات (CSV / JSON)", type=["csv", "json"])
-        if uploaded is not None:
-            try:
-                if uploaded.name.endswith(".csv"):
-                    new_df = pd.read_csv(uploaded)
-                else:
-                    new_df = pd.read_json(uploaded)
-                st.session_state.corpus_df = new_df
-                st.success("✅ تم استيراد البيانات بنجاح. انتقل بين الصفحات لرؤية التحديث.")
-                st.rerun()
-            except Exception as e:
-                st.error(f"⚠️ حدث خطأ أثناء الاستيراد: {e}")
 
 # ----------------------------------------------------------------------------
 # الصفحة 3: لوحة الإحصائيات
